@@ -1,18 +1,17 @@
-API_VERSION = '1.0'
+API_VERSION = '0.1'
+DEBUG=True
 
 from pyutil.assertutil import precondition
 
 import urllib
 
-from simplegeo.shared import APIError, Feature, SIMPLEGEOHANDLE_RSTR, is_simplegeohandle, json_decode, is_valid_ip, is_valid_lat, is_valid_lon, is_numeric
+from simplegeo.shared import APIError, Record, SIMPLEGEOHANDLE_RSTR, json_decode, is_valid_ip, is_valid_lat, is_valid_lon, is_numeric
 from simplegeo.shared import Client as SGClient
 
 endpoints = {
-    'create': 'places',
-    'search': 'places/%(lat)s,%(lon)s.json%(quargs)s',
-    'search_by_ip': 'places/%(ipaddr)s.json%(quargs)s',
-    'search_by_my_ip': 'places/ip.json%(quargs)s',
-    'search_by_address': 'places/address.json?%(quargs)s',
+    'create': 'records/%(layer)s/%(id)s.json',
+    'create_multi': 'records/%(layer)s.json',
+    'query': 'records/%(layer)s/%{id}s/history.json',
     }
 
 class Client(SGClient):
@@ -20,170 +19,186 @@ class Client(SGClient):
         SGClient.__init__(self, key, secret, api_version=api_version, host=host, port=port)
         self.endpoints.update(endpoints)
 
-    def add_feature(self, feature):
+    def recordAddUpdate(self, record):
         """Create a new feature, returns the simplegeohandle. """
-        endpoint = self._endpoint('create')
-        if feature.id:
-            # only simplegeohandles or None should be stored in self.id
-            assert is_simplegeohandle(feature.id)
-            raise ValueError('A feature cannot be added to the Places database when it already has a simplegeohandle: %s' % (feature.id,))
-        jsonrec = feature.to_json()
-        resp, content = self._request(endpoint, "POST", jsonrec)
+
+        endpoint = self._endpoint('create', layer=record.layer, id=record.id)
+        if DEBUG:
+            print("Endpoint:\n%s\n" % endpoint);
+
+        jsonrec = record.to_json()
+        if DEBUG:
+            print("JSON payload:\n%s\n" % jsonrec);
+
+        resp, content = self._request(endpoint, "PUT", jsonrec)
         if resp['status'] != "202":
             raise APIError(int(resp['status']), content, resp)
         contentobj = json_decode(content)
-        if not contentobj.has_key('id'):
-            raise APIError(int(resp['status']), content, resp)
-        handle = contentobj['id']
-        assert is_simplegeohandle(handle)
-        return handle
+        if DEBUG:
+            print("Response:\n%s\n" %contentobj)
 
-    def update_feature(self, feature):
-        """Update a Places feature."""
-        endpoint = self._endpoint('feature', simplegeohandle=feature.id)
-        return self._request(endpoint, 'POST', feature.to_json())[1]
 
-    def delete_feature(self, simplegeohandle):
-        """Delete a Places feature."""
-        precondition(is_simplegeohandle(simplegeohandle), "simplegeohandle is required to match the regex %s" % SIMPLEGEOHANDLE_RSTR, simplegeohandle=simplegeohandle)
-        endpoint = self._endpoint('feature', simplegeohandle=simplegeohandle)
-        return self._request(endpoint, 'DELETE')[1]
+        # if feature.id:
+        #     # only simplegeohandles or None should be stored in self.id
+        #     assert is_simplegeohandle(feature.id)
+        #     raise ValueError('A feature cannot be added to the Places database when it already has a simplegeohandle: %s' % (feature.id,))
+        # jsonrec = feature.to_json()
+        # resp, content = self._request(endpoint, "POST", jsonrec)
+        # if resp['status'] != "202":
+        #     raise APIError(int(resp['status']), content, resp)
+        # contentobj = json_decode(content)
+        # if not contentobj.has_key('id'):
+        #     raise APIError(int(resp['status']), content, resp)
+        # handle = contentobj['id']
+        # assert is_simplegeohandle(handle)
+        # return handle
 
-    def search(self, lat, lon, radius=None, query=None, category=None):
-        """Search for places near a lat/lon, within a radius (in kilometers)."""
-        precondition(is_valid_lat(lat), lat)
-        precondition(is_valid_lon(lon), lon)
-        precondition(radius is None or is_numeric(radius), radius)
-        precondition(query is None or isinstance(query, basestring), query)
-        precondition(category is None or isinstance(category, basestring), category)
+    # def update_feature(self, feature):
+    #     """Update a Places feature."""
+    #     endpoint = self._endpoint('feature', simplegeohandle=feature.id)
+    #     return self._request(endpoint, 'POST', feature.to_json())[1]
 
-        if isinstance(query, unicode):
-            query = query.encode('utf-8')
-        if isinstance(category, unicode):
-            category = category.encode('utf-8')
+    # def delete_feature(self, simplegeohandle):
+    #     """Delete a Places feature."""
+    #     precondition(is_simplegeohandle(simplegeohandle), "simplegeohandle is required to match the regex %s" % SIMPLEGEOHANDLE_RSTR, simplegeohandle=simplegeohandle)
+    #     endpoint = self._endpoint('feature', simplegeohandle=simplegeohandle)
+    #     return self._request(endpoint, 'DELETE')[1]
 
-        kwargs = { }
-        if radius:
-            kwargs['radius'] = radius
-        if query:
-            kwargs['q'] = query
-        if category:
-            kwargs['category'] = category
-        quargs = urllib.urlencode(kwargs)
-        if quargs:
-            quargs = '?'+quargs
-        endpoint = self._endpoint('search', lat=lat, lon=lon, quargs=quargs)
+    # def search(self, lat, lon, radius=None, query=None, category=None):
+    #     """Search for places near a lat/lon, within a radius (in kilometers)."""
+    #     precondition(is_valid_lat(lat), lat)
+    #     precondition(is_valid_lon(lon), lon)
+    #     precondition(radius is None or is_numeric(radius), radius)
+    #     precondition(query is None or isinstance(query, basestring), query)
+    #     precondition(category is None or isinstance(category, basestring), category)
 
-        result = self._request(endpoint, 'GET')[1]
+    #     if isinstance(query, unicode):
+    #         query = query.encode('utf-8')
+    #     if isinstance(category, unicode):
+    #         category = category.encode('utf-8')
 
-        fc = json_decode(result)
-        return [Feature.from_dict(f) for f in fc['features']]
+    #     kwargs = { }
+    #     if radius:
+    #         kwargs['radius'] = radius
+    #     if query:
+    #         kwargs['q'] = query
+    #     if category:
+    #         kwargs['category'] = category
+    #     quargs = urllib.urlencode(kwargs)
+    #     if quargs:
+    #         quargs = '?'+quargs
+    #     endpoint = self._endpoint('search', lat=lat, lon=lon, quargs=quargs)
 
-    def search_by_ip(self, ipaddr, radius=None, query=None, category=None):
-        """
-        Search for places near an IP address, within a radius (in
-        kilometers).
+    #     result = self._request(endpoint, 'GET')[1]
 
-        The server uses guesses the latitude and longitude from the
-        ipaddr and then does the same thing as search(), using that
-        guessed latitude and longitude.
-        """
-        precondition(is_valid_ip(ipaddr), ipaddr)
-        precondition(radius is None or is_numeric(radius), radius)
-        precondition(query is None or isinstance(query, basestring), query)
-        precondition(category is None or isinstance(category, basestring), category)
+    #     fc = json_decode(result)
+    #     return [Feature.from_dict(f) for f in fc['features']]
 
-        if isinstance(query, unicode):
-            query = query.encode('utf-8')
-        if isinstance(category, unicode):
-            category = category.encode('utf-8')
+    # def search_by_ip(self, ipaddr, radius=None, query=None, category=None):
+    #     """
+    #     Search for places near an IP address, within a radius (in
+    #     kilometers).
 
-        kwargs = { }
-        if radius:
-            kwargs['radius'] = radius
-        if query:
-            kwargs['q'] = query
-        if category:
-            kwargs['category'] = category
-        quargs = urllib.urlencode(kwargs)
-        if quargs:
-            quargs = '?'+quargs
-        endpoint = self._endpoint('search_by_ip', ipaddr=ipaddr, quargs=quargs)
+    #     The server uses guesses the latitude and longitude from the
+    #     ipaddr and then does the same thing as search(), using that
+    #     guessed latitude and longitude.
+    #     """
+    #     precondition(is_valid_ip(ipaddr), ipaddr)
+    #     precondition(radius is None or is_numeric(radius), radius)
+    #     precondition(query is None or isinstance(query, basestring), query)
+    #     precondition(category is None or isinstance(category, basestring), category)
 
-        result = self._request(endpoint, 'GET')[1]
+    #     if isinstance(query, unicode):
+    #         query = query.encode('utf-8')
+    #     if isinstance(category, unicode):
+    #         category = category.encode('utf-8')
 
-        fc = json_decode(result)
-        return [Feature.from_dict(f) for f in fc['features']]
+    #     kwargs = { }
+    #     if radius:
+    #         kwargs['radius'] = radius
+    #     if query:
+    #         kwargs['q'] = query
+    #     if category:
+    #         kwargs['category'] = category
+    #     quargs = urllib.urlencode(kwargs)
+    #     if quargs:
+    #         quargs = '?'+quargs
+    #     endpoint = self._endpoint('search_by_ip', ipaddr=ipaddr, quargs=quargs)
 
-    def search_by_my_ip(self, radius=None, query=None, category=None):
-        """
-        Search for places near your IP address, within a radius (in
-        kilometers).
+    #     result = self._request(endpoint, 'GET')[1]
 
-        The server gets the IP address from the HTTP connection (this
-        may be the IP address of your device or of a firewall, NAT, or
-        HTTP proxy device between you and the server), and then does
-        the same thing as search_by_ip(), using that IP address.
-        """
-        precondition(radius is None or is_numeric(radius), radius)
-        precondition(query is None or isinstance(query, basestring), query)
-        precondition(category is None or isinstance(category, basestring), category)
+    #     fc = json_decode(result)
+    #     return [Feature.from_dict(f) for f in fc['features']]
 
-        if isinstance(query, unicode):
-            query = query.encode('utf-8')
-        if isinstance(category, unicode):
-            category = category.encode('utf-8')
+    # def search_by_my_ip(self, radius=None, query=None, category=None):
+    #     """
+    #     Search for places near your IP address, within a radius (in
+    #     kilometers).
 
-        kwargs = { }
-        if radius:
-            kwargs['radius'] = radius
-        if query:
-            kwargs['q'] = query
-        if category:
-            kwargs['category'] = category
-        quargs = urllib.urlencode(kwargs)
-        if quargs:
-            quargs = '?'+quargs
-        endpoint = self._endpoint('search_by_my_ip', quargs=quargs)
+    #     The server gets the IP address from the HTTP connection (this
+    #     may be the IP address of your device or of a firewall, NAT, or
+    #     HTTP proxy device between you and the server), and then does
+    #     the same thing as search_by_ip(), using that IP address.
+    #     """
+    #     precondition(radius is None or is_numeric(radius), radius)
+    #     precondition(query is None or isinstance(query, basestring), query)
+    #     precondition(category is None or isinstance(category, basestring), category)
 
-        result = self._request(endpoint, 'GET')[1]
+    #     if isinstance(query, unicode):
+    #         query = query.encode('utf-8')
+    #     if isinstance(category, unicode):
+    #         category = category.encode('utf-8')
 
-        fc = json_decode(result)
-        return [Feature.from_dict(f) for f in fc['features']]
+    #     kwargs = { }
+    #     if radius:
+    #         kwargs['radius'] = radius
+    #     if query:
+    #         kwargs['q'] = query
+    #     if category:
+    #         kwargs['category'] = category
+    #     quargs = urllib.urlencode(kwargs)
+    #     if quargs:
+    #         quargs = '?'+quargs
+    #     endpoint = self._endpoint('search_by_my_ip', quargs=quargs)
 
-    def search_by_address(self, address, radius=None, query=None, category=None):
-        """
-        Search for places near the given address, within a radius (in
-        kilometers).
+    #     result = self._request(endpoint, 'GET')[1]
 
-        The server figures out the latitude and longitude from the
-        street address and then does the same thing as search(), using
-        that deduced latitude and longitude.
-        """
-        precondition(isinstance(address, basestring), address)
-        precondition(address != '', address)
-        precondition(radius is None or is_numeric(radius), radius)
-        precondition(query is None or isinstance(query, basestring), query)
-        precondition(category is None or isinstance(category, basestring), category)
+    #     fc = json_decode(result)
+    #     return [Feature.from_dict(f) for f in fc['features']]
 
-        if isinstance(address, unicode):
-            address = address.encode('utf-8')
-        if isinstance(query, unicode):
-            query = query.encode('utf-8')
-        if isinstance(category, unicode):
-            category = category.encode('utf-8')
+    # def search_by_address(self, address, radius=None, query=None, category=None):
+    #     """
+    #     Search for places near the given address, within a radius (in
+    #     kilometers).
 
-        kwargs = { 'address': address }
-        if radius:
-            kwargs['radius'] = radius
-        if query:
-            kwargs['q'] = query
-        if category:
-            kwargs['category'] = category
-        quargs = urllib.urlencode(kwargs)
-        endpoint = self._endpoint('search_by_address', quargs=quargs)
+    #     The server figures out the latitude and longitude from the
+    #     street address and then does the same thing as search(), using
+    #     that deduced latitude and longitude.
+    #     """
+    #     precondition(isinstance(address, basestring), address)
+    #     precondition(address != '', address)
+    #     precondition(radius is None or is_numeric(radius), radius)
+    #     precondition(query is None or isinstance(query, basestring), query)
+    #     precondition(category is None or isinstance(category, basestring), category)
 
-        result = self._request(endpoint, 'GET')[1]
+    #     if isinstance(address, unicode):
+    #         address = address.encode('utf-8')
+    #     if isinstance(query, unicode):
+    #         query = query.encode('utf-8')
+    #     if isinstance(category, unicode):
+    #         category = category.encode('utf-8')
 
-        fc = json_decode(result)
-        return [Feature.from_dict(f) for f in fc['features']]
+    #     kwargs = { 'address': address }
+    #     if radius:
+    #         kwargs['radius'] = radius
+    #     if query:
+    #         kwargs['q'] = query
+    #     if category:
+    #         kwargs['category'] = category
+    #     quargs = urllib.urlencode(kwargs)
+    #     endpoint = self._endpoint('search_by_address', quargs=quargs)
+
+    #     result = self._request(endpoint, 'GET')[1]
+
+    #     fc = json_decode(result)
+    #     return [Feature.from_dict(f) for f in fc['features']]
