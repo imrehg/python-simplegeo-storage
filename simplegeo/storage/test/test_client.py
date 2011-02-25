@@ -2,7 +2,7 @@
 
 import unittest, urllib
 from pyutil import jsonutil as json
-from simplegeo.places import Client, Feature, APIError
+from simplegeo.storage import Client, Feature, APIError
 from simplegeo.shared import DecodeError
 
 from decimal import Decimal as D

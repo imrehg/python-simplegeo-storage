@@ -2,8 +2,8 @@
 from setuptools import setup, find_packages
 import os, re
 
-PKG='simplegeo-places'
-VERSIONFILE = os.path.join('simplegeo', 'places', '_version.py')
+PKG='simplegeo-storage'
+VERSIONFILE = os.path.join('simplegeo', 'storage', '_version.py')
 verstr = "unknown"
 try:
     verstrline = open(VERSIONFILE, "rt").read()
@@ -32,7 +32,7 @@ else:
 
 # trialcoverage is another optional way to get code-coverage
 # results. Uncomment the following and run "python setup.py trial
-# --reporter=bwverbose-coverage -s simplegeo.places.test".
+# --reporter=bwverbose-coverage -s simplegeo.storage.test".
 # setup_requires.append('setuptools_trial')
 # tests_require.extend(['setuptools_trial', 'trialcoverage'])
 
@@ -42,15 +42,15 @@ else:
 
 setup(name=PKG,
       version=verstr,
-      description="Library for interfacing with SimpleGeo's Places API",
+      description="Library for interfacing with SimpleGeo's Storage API",
       author="Zooko Wilcox-O'Hearn",
       author_email="zooko@simplegeo.com",
-      url="http://github.com/simplegeo/python-simplegeo-places",
+      url="http://github.com/simplegeo/python-simplegeo-storage",
       packages = find_packages(),
       license = "MIT License",
       install_requires=['simplegeo-shared >= 2.3.60', 'pyutil[jsonutil] >= 1.8.1'],
       keywords="simplegeo",
       zip_safe=False, # actually it is zip safe, but zipping packages doesn't help with anything and can cause some problems (http://bugs.python.org/setuptools/issue33 )
       namespace_packages = ['simplegeo'],
-      test_suite='simplegeo.places.test',
+      test_suite='simplegeo.storage.test',
       tests_require=['mock'])

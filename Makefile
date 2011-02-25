@@ -62,7 +62,7 @@ coverage.xml: .coverage
 	@$(COVERAGE) xml $(COVERED)
 
 .coverage: $(SOURCES) $(TESTS)
-	-@$(COVERAGE) run --branch setup.py test -s simplegeo.places.test
+	-@$(COVERAGE) run --branch setup.py test -s simplegeo.storage.test
 
 bin/coverage: bin/easy_install
 	@$(EZ_INSTALL) coverage
